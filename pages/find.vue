@@ -1,28 +1,43 @@
 <template>
   <v-row>
-    <v-col>
-      <v-combobox
+    <v-col cols="12">
+      <v-autocomplete
         v-model="id"
-        :items="list"
-        :search-input.sync="searchKey"
-        :loading="searchingByKey"
+        :items="items"
         :counter="true"
-        :maxlength="13"
+        :search-input.sync="search"
         auto-select-first
         clearable
         label="Package id"
-        hide-no-data
         outlined
-        @click:clear="onResetData()"
+        @click:clear="id = null"
       >
-      <!-- a regex to validate the id -->
-        <!-- hide-selected -->
-        <!-- <template #item="data">
-          <v-list-item-content>
-            <v-list-item-title>{{ data.item.select }}</v-list-item-title>
-          </v-list-item-content>
-        </template> -->
-      </v-combobox>
+        <template #no-data>
+          <v-list-item>
+            <v-list-item-content>
+              <v-list-item-title>
+                No results matching "<strong>{{ search }}</strong>"
+              </v-list-item-title>
+            </v-list-item-content>
+          </v-list-item>
+        </template>
+      </v-autocomplete>
+    </v-col>
+
+    <v-col cols="12">
+      <v-row
+        justify="end"
+        dense
+      >
+        <v-col cols="auto">
+          <v-btn outlined @click="cancel()">
+            Cancel
+          </v-btn>
+          <v-btn outlined @click="find()">
+            Find
+          </v-btn>
+        </v-col>
+      </v-row>
     </v-col>
   </v-row>
 </template>
@@ -32,40 +47,60 @@ export default {
   name: 'InspirePage',
   data() {
     return {
-      id: "1",
-      searchKey: null,
-      searchingByKey: false,
-      list: ["1", "2", "3", "4", "5"]
+      id: null,
+      search: null,
+      items: []
     }
   },
 
   watch: {
     searchKey (key) {
-      if (!key) return
-      key = key.replace(/ /g, '').toUpperCase()
-      // if (key.length === 0 && this.clearAllFields) this.onResetData()
-      if (key.length >= 5 && key !== this.previousKey) {
-        this.searchingByKey = true
-        this.list = []
-        this.previousKey = key
-        this.axios.patch(`/api/find-package/${key}`)
-          .then(({ data, status }) => {
-            if (status === 200) {
-              data.forEach(person => {
-                person.name = person.shortName || `${person.firstName} ${person.lastName}`
-                person.key = person.key || person.personCode
-                this.list.push({
-                  name: person.name,
-                  key: person.key,
-                  id: person.id,
-                  value: null
-                })
-              })
-            }
-          })
-          .finally(() => { this.searchingByKey = false })
-      }
+      // if (!key) return
+      // key = key.replace(/ /g, '').toUpperCase()
+      // // if (key.length === 0 && this.clearAllFields) this.onResetData()
+      // if (key.length >= 5 && key !== this.previousKey) {
+      //   this.searchingByKey = true
+      //   this.list = []
+      //   this.previousKey = key
+      //   this.axios.patch(`/find-package/${key}`)
+      //     .then(({ data, status }) => {
+      //       if (status === 200) {
+      //         data.forEach(person => {
+      //           person.name = person.shortName || `${person.firstName} ${person.lastName}`
+      //           person.key = person.key || person.personCode
+      //           this.list.push({
+      //             name: person.name,
+      //             key: person.key,
+      //             id: person.id,
+      //             value: null
+      //           })
+      //         })
+      //       }
+      //     })
+      //     .finally(() => { this.searchingByKey = false })
+      // }
     },
+  },
+
+  created() {
+    this.getAll()
+  },
+
+  methods: {
+    find () {
+      this.$axios('http://127.0.0.1:8000/find', { params: { package_id: this.id } })
+    },
+    getAll () {
+      this.$axios('http://127.0.0.1:8000/getall')
+        .then(({ status, data }) => {
+          // if (status === 200) this.items = data.message
+          if (status === 200) {
+            data.message.forEach(item => {
+              this.items.push(item.id)
+            })
+          }
+        })
+    }
   }
 }
 </script>

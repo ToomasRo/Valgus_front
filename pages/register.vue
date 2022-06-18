@@ -1,20 +1,25 @@
 <template>
   <v-row justify="center" align="center">
-
-    <v-spacer />
-    <v-col cols="6">
-      <v-combobox
+    <v-col cols="12">
+      <v-autocomplete
         v-model="item.shelfId"
         :items="list"
-        :search-input.sync="searchKey"
+        :search-input.sync="shelfSearch"
         auto-select-first
         clearable
         label="Shelf id"
-        hide-no-data
         outlined
         @click:clear="item.shelfId = null"
       >
-        <!-- hide-selected -->
+        <template #no-data>
+          <v-list-item>
+            <v-list-item-content>
+              <v-list-item-title>
+                Shelf "<strong>{{ shelfSearch }}</strong>" does not exist
+              </v-list-item-title>
+            </v-list-item-content>
+          </v-list-item>
+        </template>
         <template #append-outer>
           <v-tooltip left>
             <template #activator="{ on }">
@@ -35,7 +40,7 @@
             <v-list-item-title>{{ data.item.select }}</v-list-item-title>
           </v-list-item-content>
         </template> -->
-      </v-combobox>
+      </v-autocomplete>
       <!-- scan one shelf and add multiple items -->
       <v-combobox
         v-model="item.packageIdList"
@@ -66,12 +71,10 @@
         </template>
       </v-combobox>
     </v-col>
-    <v-spacer />
 
     <v-col cols="12">
       <v-row
         justify="end"
-        dense
       >
         <v-col cols="auto">
           <v-btn outlined @click="submit()">
@@ -81,8 +84,51 @@
       </v-row>
     </v-col>
 
-    <div ref="scannerContainer"></div>
-    <video ref="video"></video>
+
+    <v-dialog
+      v-model="shelfScannerDialog"
+      eager
+      fullscreen
+      hide-overlay
+      transition="dialog-bottom-transition"
+    >
+      <v-card>
+        <video
+          ref="video"
+          width="100%"
+          height="100%"
+        ></video>
+        <v-row justify="end">
+          <v-col cols="auto">
+            <v-btn outlined @click="shelfScannerDialog = false">
+              Close
+            </v-btn>
+          </v-col>
+        </v-row>
+      </v-card>
+    </v-dialog>
+
+    <v-dialog
+      v-model="packageScannerDialog"
+      eager
+      fullscreen
+      hide-overlay
+      transition="dialog-bottom-transition"
+    >
+      <v-card>
+        <div
+          ref="scannerContainer"
+        ></div>
+        {{ item.packageIdList }}
+        <v-row justify="end">
+          <v-col cols="auto">
+            <v-btn outlined @click="packageScannerDialog = false">
+              Close
+            </v-btn>
+          </v-col>
+        </v-row>
+      </v-card>
+    </v-dialog>
   </v-row>
 </template>
 
@@ -96,12 +142,36 @@ export default {
     return {
       shelfIdScanner: null,
       item: {
-        packageIdList: ["x", "t", "z"]
+        shelfId: null,
+        packageIdList: []
       },
-      searchKey: null,
+      shelfSearch: null,
       searchingByKey: false,
+      shelfScannerDialog: false,
+      packageScannerDialog: false,
       barcodeScannerIsRunning: false,
-      list: ["A1-1", "A1-2", "A1-3", "A1-4", "A2-1"]
+      list: [
+        "A1-1", "A1-2", "A1-3", "A1-4",
+        "A2-1", "A2-2", "A2-3", "A2-4",
+        "B1-1", "B1-2", "B1-3", "B1-4",
+        "B2-1", "B2-2", "B2-3", "B2-4",
+        ]
+    }
+  },
+
+  computed: {
+    shelfIdScannerIsActive () {
+      return this.shelfIdScanner?._active
+    },
+  },
+
+  watch: {
+    shelfScannerDialog (value) {
+      if (!value) this.cancelShelfScanning()
+    },
+
+    packageScannerDialog (value) {
+      if (!value) this.cancelPackageScanning()
     }
   },
 
@@ -135,20 +205,22 @@ export default {
     });
 
     Quagga.onDetected((result) => {
-      console.log("Barcode detected and processed : [" + result.codeResult.code + "]", result);
+      // console.log("Barcode detected and processed : [" + result.codeResult.code + "]", result);
       this.processBarcode(result.codeResult.code)
-      this.barcodeScannerIsRunning = false
-      Quagga.stop()
     });
+
+    // this.scanPackageId()
+    // this.scanShelfId()
   },
 
   methods: {
     scanShelfId () {
+      this.shelfScannerDialog = true
       this.shelfIdScanner.start()
     },
 
     processShelfId (result) {
-      this.shelfIdScanner.stop()
+      this.shelfScannerDialog = false
       this.item.shelfId = result.data
     },
 
@@ -159,8 +231,8 @@ export default {
           type: "LiveStream",
           target: this.$refs.scannerContainer,
           constraints: {
-            width: 480,
-            height: 320,
+            // width: 480,
+            // height: 320,
             facingMode: "environment"
           }
         },
@@ -185,33 +257,48 @@ export default {
         }
       }, (err) => {
         if (err) {
-          console.log(err);
+          console.log(err)
           return
         }
-        console.log("Initialization finished. Ready to start");
-        Quagga.start();
-        this.barcodeScannerIsRunning = true;
+        this.barcodeScannerIsRunning = true
+        this.packageScannerDialog = true
+        Quagga.start()
       })
 
     },
 
     processBarcode (code) {
-      if (!this.item.packageIdList.includes(code)) { 
+      if (!this.item.packageIdList.includes(code) && code.length === 13) {
         this.item.packageIdList.push(code)
       }
     },
-    
+
     submit () {
       this.$axios.post('http://127.0.0.1:8000/create', this.item)
-        // .then(res => {
-          // const declId = this.declId || res.data
-          // this.formatSaveRes(res, options)
-          // this.$store.dispatch('declaration/loadHeader', { id: declId })
-        // })
+        .then(({ status, data }) => {
+          // if (status === 200) {
+          // }
+        })
         // .catch(err => { this.setServerErrors(err) })
         // .finally(() => { this.$pageload.loading = false })
-    }
+    },
+
+    cancelShelfScanning () {
+      this.shelfIdScanner.stop()
+    },
+
+    cancelPackageScanning () {
+        this.barcodeScannerIsRunning = false
+        Quagga.stop()
+    },
   }
 
 }
 </script>
+
+<style>
+  .drawingBuffer {
+    top: 0px !important;
+    position: absolute;
+  }
+</style>

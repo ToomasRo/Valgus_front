@@ -3,7 +3,7 @@
     <v-navigation-drawer
       v-model="drawer"
       permanent
-      :mini-variant="false"
+      :mini-variant="true"
       fixed
       app
     >
@@ -53,6 +53,11 @@ export default {
           title: 'Find Package',
           to: '/find',
         },
+        {
+          icon: 'mdi-format-list-bulleted',
+          title: 'All Packages',
+          to: '/getall',
+        }
       ],
       miniVariant: false,
       right: true,
