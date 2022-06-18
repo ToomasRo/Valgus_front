@@ -28,20 +28,13 @@
                 v-on="on"
                 @click="scanShelfId()"
               >
-                <!-- class="pb-5 pr-2" -->
                 <v-icon>{{ 'mdi-qrcode-scan' }}</v-icon>
               </v-btn>
             </template>
             <span>Scan Shelf Id</span>
           </v-tooltip>
         </template>
-        <!-- <template #item="data">
-          <v-list-item-content>
-            <v-list-item-title>{{ data.item.select }}</v-list-item-title>
-          </v-list-item-content>
-        </template> -->
       </v-autocomplete>
-      <!-- scan one shelf and add multiple items -->
       <v-combobox
         v-model="item.packageIdList"
         :items="[]"
@@ -84,6 +77,19 @@
       </v-row>
     </v-col>
 
+    <v-snackbar v-model="successSnackbar">
+      <v-row>
+        <v-col cols="auto">
+          Package has been saved
+        </v-col>
+        <v-spacer></v-spacer>
+        <v-col cols="auto">
+          <v-btn icon @click.native="successSnackbar = false">
+            <v-icon>{{ 'mdi-close' }}</v-icon>
+          </v-btn>
+        </v-col>
+      </v-row>
+    </v-snackbar>
 
     <v-dialog
       v-model="shelfScannerDialog"
@@ -116,9 +122,7 @@
       transition="dialog-bottom-transition"
     >
       <v-card>
-        <div
-          ref="scannerContainer"
-        ></div>
+        <div ref="scannerContainer"></div>
         {{ item.packageIdList }}
         <v-row justify="end">
           <v-col cols="auto">
@@ -140,6 +144,7 @@ export default {
   name: 'IndexPage',
   data() {
     return {
+      successSnackbar: false,
       shelfIdScanner: null,
       item: {
         shelfId: null,
@@ -205,7 +210,6 @@ export default {
     });
 
     Quagga.onDetected((result) => {
-      // console.log("Barcode detected and processed : [" + result.codeResult.code + "]", result);
       this.processBarcode(result.codeResult.code)
     });
 
@@ -222,6 +226,36 @@ export default {
     processShelfId (result) {
       this.shelfScannerDialog = false
       this.item.shelfId = result.data
+    },
+
+    processBarcode (code) {
+      const codeIsNotRegistered = !this.item.packageIdList.includes(code)
+      const correctFormat = /[A-z]{2}[0-9]{9}[A-z]{2}/
+      const codeFormatIsCorrect = code.match(correctFormat) 
+      if (codeIsNotRegistered && code.length === 13 && codeFormatIsCorrect) {
+        this.item.packageIdList.push(code)
+      }
+    },
+
+    submit () {
+      this.$axios.post('http://127.0.0.1:8000/create', this.item)
+        .then(({ status, data }) => {
+          if (status === 200) {
+            this.successSnackbar = true
+            this.item = {}
+          }
+        })
+        // .catch(err => { this.setServerErrors(err) })
+        // .finally(() => { this.$pageload.loading = false })
+    },
+
+    cancelShelfScanning () {
+      this.shelfIdScanner.stop()
+    },
+
+    cancelPackageScanning () {
+        this.barcodeScannerIsRunning = false
+        Quagga.stop()
     },
 
     scanPackageId () {
@@ -266,31 +300,6 @@ export default {
       })
 
     },
-
-    processBarcode (code) {
-      if (!this.item.packageIdList.includes(code) && code.length === 13) {
-        this.item.packageIdList.push(code)
-      }
-    },
-
-    submit () {
-      this.$axios.post('http://127.0.0.1:8000/create', this.item)
-        .then(({ status, data }) => {
-          // if (status === 200) {
-          // }
-        })
-        // .catch(err => { this.setServerErrors(err) })
-        // .finally(() => { this.$pageload.loading = false })
-    },
-
-    cancelShelfScanning () {
-      this.shelfIdScanner.stop()
-    },
-
-    cancelPackageScanning () {
-        this.barcodeScannerIsRunning = false
-        Quagga.stop()
-    },
   }
 
 }
@@ -299,6 +308,7 @@ export default {
 <style>
   .drawingBuffer {
     top: 0px !important;
+    left: 0px !important;
     position: absolute;
   }
 </style>
