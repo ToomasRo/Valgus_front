@@ -24,7 +24,7 @@
         </v-list-item>
       </v-list>
     </v-navigation-drawer>
-    <v-main>
+    <v-main  style="margin-top: 40px">
       <v-container>
         <Nuxt />
       </v-container>
