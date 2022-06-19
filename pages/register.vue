@@ -123,14 +123,22 @@
     >
       <v-card>
         <div ref="scannerContainer"></div>
-        {{ item.packageIdList }}
-        <v-row justify="end">
+        <v-row justify="end" class="mr-6">
           <v-col cols="auto">
             <v-btn outlined @click="packageScannerDialog = false">
               Close
             </v-btn>
           </v-col>
         </v-row>
+        <v-col class="ml-6">
+          <v-row>
+            Scanned packages:
+          </v-row>
+          <v-row v-for="(item, i) in item.packageIdList" :key="i">
+              - {{ item }}
+          </v-row>
+        </v-col>
+
       </v-card>
     </v-dialog>
   </v-row>
@@ -231,7 +239,7 @@ export default {
     processBarcode (code) {
       const codeIsNotRegistered = !this.item.packageIdList.includes(code)
       const correctFormat = /[A-z]{2}[0-9]{9}[A-z]{2}/
-      const codeFormatIsCorrect = code.match(correctFormat) 
+      const codeFormatIsCorrect = code.match(correctFormat)
       if (codeIsNotRegistered && code.length === 13 && codeFormatIsCorrect) {
         this.item.packageIdList.push(code)
       }
